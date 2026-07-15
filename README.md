@@ -129,3 +129,7 @@ rm -rf ~/.config/desyncope
 ```
 
 Your files are untouched; any that were cloud-only re-download normally when opened.
+
+## License
+
+MIT — see [LICENSE](LICENSE).
