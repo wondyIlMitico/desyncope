@@ -37,6 +37,17 @@ the moment you actually open them. Eviction is fully reversible.
 
 No third-party packages.
 
+## Install (optional)
+
+Run it directly as `desyncope` from anywhere instead of `python3 desyncope.py`:
+
+```bash
+chmod +x desyncope.py
+ln -sf "$PWD/desyncope.py" /opt/homebrew/bin/desyncope   # or any dir on your PATH
+```
+
+Then `desyncope`, `desyncope list`, `desyncope monitor`, etc.
+
 ## Usage
 
 Interactive TUI (browse, pin with **Space**, evict pinned with **e**):
@@ -75,7 +86,8 @@ python3 desyncope.py status           # check anytime
 | `Space`     | pin / unpin the highlighted folder            |
 | `e`         | evict all pinned folders now                  |
 | `d`         | force local: download the **highlighted** entry (confirms) |
-| `m`         | live download/upload monitor (Ctrl-C to exit) |
+| `o`         | cycle sort order: type / name / local / cloud |
+| `m`         | live download/upload monitor (`q` to exit)    |
 | `s`         | rescan local footprint                         |
 | `w`         | install / remove the background watcher       |
 | `q`         | quit                                          |

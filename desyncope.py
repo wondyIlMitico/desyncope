@@ -753,13 +753,13 @@ def run_tui() -> None:
         print("iCloud Drive not found. Is iCloud Drive enabled?")
         return
 
-    folders = top_entries()
-    if not folders:
+    all_names = top_entries()
+    if not all_names:
         print("No entries found in iCloud Drive.")
         return
 
     pins = pinned_set()
-    dirs = {n for n in folders if is_top_dir(n)}
+    dirs = {n for n in all_names if is_top_dir(n)}
     cloud = cloud_sizes_by_top() or {}   # {} if no Full Disk Access / iCloud off
     # size cache: entry name -> local bytes allocated on disk
     sizes: dict[str, int] = {}
@@ -771,13 +771,31 @@ def run_tui() -> None:
 
     # du is fast; compute the local footprint up front with a progress line.
     print("Scanning local footprint of iCloud Drive entries…")
-    for i, name in enumerate(folders, 1):
-        print(f"\r  {i}/{len(folders)}  {name[:40]:<40}", end="", flush=True)
+    for i, name in enumerate(all_names, 1):
+        print(f"\r  {i}/{len(all_names)}  {name[:40]:<40}", end="", flush=True)
         size_of(name)
     print("\r" + " " * 60 + "\r", end="")
 
+    # selectable ordering — cycle with the 'o' key
+    SORTS = ["type", "name", "local", "cloud"]
+    sort_i = 0
+
+    def ordered() -> list[str]:
+        m = SORTS[sort_i]
+        if m == "name":
+            key = lambda n: (n.lower(),)
+        elif m == "local":
+            key = lambda n: (-sizes.get(n, 0), n.lower())
+        elif m == "cloud":
+            key = lambda n: (-cloud.get(n, 0), n.lower())
+        else:  # "type": folders first, then files, each alphabetical
+            key = lambda n: (not is_top_dir(n), n.lower())
+        return sorted(all_names, key=key)
+
+    folders = ordered()
+
     def _main(stdscr):
-        nonlocal pins
+        nonlocal pins, folders, sort_i
         curses.curs_set(0)
         curses.use_default_colors()
         if curses.has_colors():
@@ -786,8 +804,8 @@ def run_tui() -> None:
             curses.init_pair(3, curses.COLOR_GREEN, -1)
         pos = 0
         top = 0
-        status = ("Space: pin  e: evict  d: download  m: monitor  "
-                  "s: rescan  w: watcher  q: quit")
+        status = ("Space: pin  e: evict  d: download  o: sort  "
+                  "m: monitor  s: rescan  w: watcher  q: quit")
 
         def put(row, text, attr=curses.A_NORMAL):
             # Write a full-width line without touching the bottom-right cell,
@@ -803,7 +821,8 @@ def run_tui() -> None:
         while True:
             stdscr.erase()
             h, w = stdscr.getmaxyx()
-            title = " DeSYncoPe — keep iCloud folders cloud-only "
+            title = (f" DeSYncoPe — keep iCloud folders cloud-only"
+                     f"    [sort: {SORTS[sort_i]}] ")
             put(0, title, curses.color_pair(1) | curses.A_BOLD)
             header = f"  {'NAME':<34}{'LOCAL':>9}{'CLOUD':>10}"
             put(1, header, curses.A_DIM)
@@ -843,6 +862,13 @@ def run_tui() -> None:
                 pos = min(len(folders) - 1, pos + body_h)
             elif c == curses.KEY_PPAGE:
                 pos = max(0, pos - body_h)
+            elif c in (ord("o"), ord("O")):
+                cur = folders[pos] if folders else None
+                sort_i = (sort_i + 1) % len(SORTS)
+                folders = ordered()
+                if cur in folders:
+                    pos = folders.index(cur)     # keep cursor on same entry
+                top = 0
             elif c == ord(" "):
                 name = folders[pos]
                 if name in pins:
