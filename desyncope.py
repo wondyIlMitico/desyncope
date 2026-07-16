@@ -682,23 +682,27 @@ def cmd_list() -> None:
         print("iCloud Drive not found. Is iCloud Drive enabled?")
         return
     pins = pinned_set()
-    cloud = cloud_sizes_by_top()          # None if no Full Disk Access / iCloud off
+    total = cloud_sizes_by_top()          # total size per entry; None without FDA
     # order by type: folders first, then loose root files, each alphabetical.
     entries = sorted(top_entries(), key=lambda n: (not is_top_dir(n), n.lower()))
-    print(f"{'':2}{'NAME':<34}{'LOCAL':>10}{'CLOUD':>11}")
+    print(f"{'':2}{'NAME':<30}{'LOCAL':>9}{'CLOUD':>9}{'SIZE':>10}")
     for name in entries:
         p = ICLOUD / name
         mark = "●" if name in pins else " "
         disp = name + ("/" if is_top_dir(name) else "")
-        if len(disp) > 33:
-            disp = disp[:32] + "…"
-        lb = human(local_bytes(p))
-        cb = "—" if cloud is None else human(cloud.get(name, 0))
-        print(f"{mark} {disp:<34}{lb:>10}{cb:>11}")
-    print("\n● = pinned (kept cloud-only)   LOCAL = bytes on disk (0 = cloud-only)"
-          "   CLOUD = total size in iCloud")
-    if cloud is None:
-        print("CLOUD is blank — grant Full Disk Access to your terminal to show it "
+        if len(disp) > 29:
+            disp = disp[:28] + "…"
+        local = local_bytes(p)
+        if total is None:
+            lb, cb, sb = human(local), "—", "—"
+        else:
+            tot = total.get(name, 0)
+            lb, cb, sb = human(local), human(max(tot - local, 0)), human(tot)
+        print(f"{mark} {disp:<30}{lb:>9}{cb:>9}{sb:>10}")
+    print("\n● = pinned   LOCAL = on disk   CLOUD = still cloud-only   "
+          "SIZE = total (LOCAL+CLOUD)")
+    if total is None:
+        print("CLOUD/SIZE blank — grant Full Disk Access to your terminal to show them "
               "(System Settings → Privacy & Security → Full Disk Access).")
 
 
@@ -777,7 +781,7 @@ def run_tui() -> None:
     print("\r" + " " * 60 + "\r", end="")
 
     # selectable ordering — cycle with the 'o' key
-    SORTS = ["type", "name", "local", "cloud"]
+    SORTS = ["type", "name", "local", "size"]
     sort_i = 0
 
     def ordered() -> list[str]:
@@ -786,7 +790,7 @@ def run_tui() -> None:
             key = lambda n: (n.lower(),)
         elif m == "local":
             key = lambda n: (-sizes.get(n, 0), n.lower())
-        elif m == "cloud":
+        elif m == "size":
             key = lambda n: (-cloud.get(n, 0), n.lower())
         else:  # "type": folders first, then files, each alphabetical
             key = lambda n: (not is_top_dir(n), n.lower())
@@ -824,7 +828,7 @@ def run_tui() -> None:
             title = (f" DeSYncoPe — keep iCloud folders cloud-only"
                      f"    [sort: {SORTS[sort_i]}] ")
             put(0, title, curses.color_pair(1) | curses.A_BOLD)
-            header = f"  {'NAME':<34}{'LOCAL':>9}{'CLOUD':>10}"
+            header = f"  {'NAME':<30}{'LOCAL':>8}{'CLOUD':>9}{'SIZE':>9}"
             put(1, header, curses.A_DIM)
 
             body_h = h - 4
@@ -838,11 +842,18 @@ def run_tui() -> None:
                 row = 2 + (i - top)
                 mark = "[●]" if name in pins else "[ ]"
                 disp = (name + "/") if name in dirs else name
-                if len(disp) > 33:
-                    disp = disp[:32] + "…"
-                szs = f"{human(sizes[name]):>9}" if name in sizes else f"{'—':>9}"
-                cbs = f"{human(cloud[name]):>10}" if name in cloud else f"{'—':>10}"
-                line = f" {mark} {disp:<33}{szs}{cbs}"
+                if len(disp) > 29:
+                    disp = disp[:28] + "…"
+                local = sizes.get(name, 0)
+                lbs = f"{human(local):>8}"
+                if name in cloud:
+                    tot = cloud[name]
+                    cbs = f"{human(max(tot - local, 0)):>9}"
+                    sbs = f"{human(tot):>9}"
+                else:
+                    cbs = f"{'—':>9}"
+                    sbs = f"{'—':>9}"
+                line = f" {mark} {disp:<29}{lbs}{cbs}{sbs}"
                 attr = curses.A_REVERSE if i == pos else curses.A_NORMAL
                 if name in pins and i != pos:
                     attr |= curses.color_pair(3)

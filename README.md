@@ -56,10 +56,14 @@ Interactive TUI (browse, pin with **Space**, evict pinned with **e**):
 python3 desyncope.py
 ```
 
+Columns in `list` / the TUI: **LOCAL** = bytes on disk (downloaded), **CLOUD** =
+still cloud-only (not downloaded), **SIZE** = total (`LOCAL + CLOUD`). CLOUD and
+SIZE need Full Disk Access (see below).
+
 Command line:
 
 ```bash
-python3 desyncope.py list             # folders + root files, LOCAL and CLOUD size
+python3 desyncope.py list             # folders + root files: LOCAL / CLOUD / SIZE
 python3 desyncope.py pin Downloads Backup   # mark folders to keep cloud-only
 python3 desyncope.py evict             # evict all pinned folders now
 python3 desyncope.py download Documents   # force local: download named entries (asks to confirm)
@@ -86,7 +90,7 @@ python3 desyncope.py status           # check anytime
 | `Space`     | pin / unpin the highlighted folder            |
 | `e`         | evict all pinned folders now                  |
 | `d`         | force local: download the **highlighted** entry (confirms) |
-| `o`         | cycle sort order: type / name / local / cloud |
+| `o`         | cycle sort order: type / name / local / size  |
 | `m`         | live download/upload monitor (`q` to exit)    |
 | `s`         | rescan local footprint                         |
 | `w`         | install / remove the background watcher       |
@@ -114,7 +118,7 @@ Access** for your terminal: *System Settings → Privacy & Security → Full Dis
 Access → enable your terminal → reopen it.* This affects two things:
 
 - `monitor` — without FDA it prints a hint and exits.
-- the **CLOUD** column in `list` / the TUI — without FDA it shows `—` (LOCAL and
+- the **CLOUD** and **SIZE** columns in `list` / the TUI — without FDA they show `—` (LOCAL and
   everything else still work).
 
 Eviction, pinning, status, and the watcher never need FDA.
