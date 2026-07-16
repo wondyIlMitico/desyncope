@@ -763,6 +763,7 @@ def run_tui() -> None:
         return
 
     pins = pinned_set()
+    selected: set[str] = set()   # transient multi-selection (for download)
     dirs = {n for n in all_names if is_top_dir(n)}
     cloud = cloud_sizes_by_top() or {}   # {} if no Full Disk Access / iCloud off
     # size cache: entry name -> local bytes allocated on disk
@@ -808,8 +809,8 @@ def run_tui() -> None:
             curses.init_pair(3, curses.COLOR_GREEN, -1)
         pos = 0
         top = 0
-        status = ("Space: pin  e: evict  d: download  o: sort  "
-                  "m: monitor  s: rescan  w: watcher  q: quit")
+        status = ("Space pin  Tab select  |  d download(sel)  e evict(pin)  "
+                  "o sort  m monitor  s rescan  w watch  q quit")
 
         def put(row, text, attr=curses.A_NORMAL):
             # Write a full-width line without touching the bottom-right cell,
@@ -828,7 +829,7 @@ def run_tui() -> None:
             title = (f" DeSYncoPe — keep iCloud folders cloud-only"
                      f"    [sort: {SORTS[sort_i]}] ")
             put(0, title, curses.color_pair(1) | curses.A_BOLD)
-            header = f"  {'NAME':<30}{'LOCAL':>8}{'CLOUD':>9}{'SIZE':>9}"
+            header = f" ● ✓ {'NAME':<27}{'LOCAL':>8}{'CLOUD':>9}{'SIZE':>9}"
             put(1, header, curses.A_DIM)
 
             body_h = h - 4
@@ -840,10 +841,11 @@ def run_tui() -> None:
             for i in range(top, min(len(folders), top + body_h)):
                 name = folders[i]
                 row = 2 + (i - top)
-                mark = "[●]" if name in pins else "[ ]"
+                pinm = "●" if name in pins else " "
+                selm = "✓" if name in selected else " "
                 disp = (name + "/") if name in dirs else name
-                if len(disp) > 29:
-                    disp = disp[:28] + "…"
+                if len(disp) > 27:
+                    disp = disp[:26] + "…"
                 local = sizes.get(name, 0)
                 lbs = f"{human(local):>8}"
                 if name in cloud:
@@ -853,10 +855,13 @@ def run_tui() -> None:
                 else:
                     cbs = f"{'—':>9}"
                     sbs = f"{'—':>9}"
-                line = f" {mark} {disp:<29}{lbs}{cbs}{sbs}"
+                line = f" {pinm} {selm} {disp:<27}{lbs}{cbs}{sbs}"
                 attr = curses.A_REVERSE if i == pos else curses.A_NORMAL
-                if name in pins and i != pos:
-                    attr |= curses.color_pair(3)
+                if i != pos:
+                    if name in pins:
+                        attr |= curses.color_pair(3)     # pinned = green
+                    if name in selected:
+                        attr |= curses.A_BOLD            # selected = bold
                 put(row, line, attr)
 
             put(h - 1, status, curses.A_DIM)
@@ -881,12 +886,19 @@ def run_tui() -> None:
                     pos = folders.index(cur)     # keep cursor on same entry
                 top = 0
             elif c == ord(" "):
-                name = folders[pos]
+                name = folders[pos]              # Space = pin/unpin (permanent)
                 if name in pins:
                     pins.discard(name)
                 else:
                     pins.add(name)
                 set_pinned(pins)
+            elif c in (9, ord("\t")):            # Tab = select/deselect (for download)
+                name = folders[pos]
+                if name in selected:
+                    selected.discard(name)
+                else:
+                    selected.add(name)
+                pos = min(len(folders) - 1, pos + 1)   # advance, so you can tick a run
             elif c in (ord("s"), ord("S")):
                 status = "Rescanning sizes…"
                 put(h - 1, status, curses.A_DIM)
@@ -894,8 +906,8 @@ def run_tui() -> None:
                 sizes.clear()
                 for name in folders:
                     size_of(name)
-                status = ("Space: pin  e: evict  d: download  m: monitor  "
-                          "s: rescan  w: watcher  q: quit")
+                status = ("Space pin  Tab select  |  d download(sel)  e evict(pin)  "
+                          "o sort  m monitor  s rescan  w watch  q quit")
             elif c in (ord("e"), ord("E")):
                 targets = [n for n in folders if n in pins]
                 if not targets:
@@ -912,13 +924,16 @@ def run_tui() -> None:
                 curses.reset_prog_mode()
                 stdscr.refresh()
             elif c in (ord("d"), ord("D")):
-                name = folders[pos]            # the highlighted entry, not the pins
+                # download acts on the SELECTED set (or the highlighted one if none)
+                targets = [n for n in folders if n in selected] or [folders[pos]]
                 curses.def_prog_mode()
                 curses.endwin()
-                print(f"\nForce local — download the highlighted entry:")
-                download_names([name])
-                sizes.pop(name, None)          # refresh its footprint
-                size_of(name)
+                print(f"\nForce local — downloading {len(targets)} entr(y/ies):")
+                download_names(targets)
+                for n in targets:              # refresh footprints
+                    sizes.pop(n, None)
+                    size_of(n)
+                selected.clear()               # consume the selection
                 input("\nPress Enter to return to DeSYncoPe…")
                 curses.reset_prog_mode()
                 stdscr.refresh()

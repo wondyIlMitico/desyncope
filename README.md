@@ -87,9 +87,10 @@ python3 desyncope.py status           # check anytime
 | Key         | Action                                        |
 |-------------|-----------------------------------------------|
 | `↑`/`↓` `j`/`k` | move                                      |
-| `Space`     | pin / unpin the highlighted folder            |
-| `e`         | evict all pinned folders now                  |
-| `d`         | force local: download the **highlighted** entry (confirms) |
+| `Space`     | **pin** / unpin (permanent `●`) — evict & watcher act on pinned |
+| `Tab`       | **select** / deselect (`✓`) — download acts on selected |
+| `e`         | evict all **pinned** folders now               |
+| `d`         | force local: download the **selected** entries (or highlighted if none) — confirms |
 | `o`         | cycle sort order: type / name / local / size  |
 | `m`         | live download/upload monitor (`q` to exit)    |
 | `s`         | rescan local footprint                         |
